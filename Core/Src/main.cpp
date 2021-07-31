@@ -19,6 +19,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "lcd.hpp"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -28,23 +29,7 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
-typedef struct{
-  char B_kmh;
-  char B_mph;
-  char B_bluetooth;
-  char B_left;
-  char B_right;
-  char B_light;
-  char B_reserved;
-  char B_maint_red;
-  char B_maint_green;
-  char battery;
-  float value;
-} lcd_t;
 
-typedef struct{
-  char led_array[5];
-} lcd_internal_t;
 
 
 
@@ -65,11 +50,7 @@ ADC_HandleTypeDef hadc;
 CAN_HandleTypeDef hcan;
 
 /* USER CODE BEGIN PV */
-#define TM16XX_CMD_DATA_AUTO 0x40
-#define TM16XX_CMD_DATA_READ 0x42			// command to read data used on two wire interfaces of TM1637
-#define TM16XX_CMD_DATA_FIXED 0x44
-#define TM16XX_CMD_DISPLAY 0x80
-#define TM16XX_CMD_ADDRESS 0xC0
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -83,166 +64,16 @@ static void MX_ADC_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void send(char data)
-{
-  for (int i = 0; i < 8; i++) {
 
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
-
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, data & 1 ? GPIO_PIN_SET: GPIO_PIN_RESET);
-
-    data >>= 1;
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
-
-  }
-
-}
-
-void start(void)
-{
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET);
-}
-
-void stop(void)
-{
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_SET);
-}
-void sendCommand(char cmd)
-{
-	start();
-  send(cmd);
-  stop();
-}
-
-void sendData(char address, char data)
-{
-  sendCommand(TM16XX_CMD_DATA_FIXED);							// use fixed addressing for data
-	start();
-  send(TM16XX_CMD_ADDRESS | address);						// address command + address
-  send(data);
-  stop();
-}
-
-
-
-void clearDisplay()
-{
-  for(char nPos=0; nPos<10; nPos++)
-  {
-	  // all OFF
-	  sendData(nPos << 1, 0);
-	  sendData((nPos << 1) | 1, 0);
-	  // all ON
-	  //sendData(nPos << 1, 0b11111111);
-	  //sendData((nPos << 1) | 1, 0b00000011);
-  }
-}
-
-void setupDisplay()
-{
-  sendCommand(TM16XX_CMD_DISPLAY | 8  | 7);
-}
-
-char conv_seven[10] = {0x7E, 48, 109, 121, 51, 91, 95, 112, 127, 123};
-void convertToSeven(int number, char* out)
-{
-	*out = *out & 0x80;
-	*out = *out | conv_seven[number];
-
-}
-
-typedef struct{
-
-	 union{
-		 struct{
-			char B_maint_green:1;
-			char B_maint_red:1;
-			char B_reserved:1;
-			char B_bat_3 :1;
-			char B_bat_2 :1;
-			char B_bat_1 :1;
-			char B_bat_0 :1;
-			char B_padding:1;
-		} bits;
-		char word;
-
-	} bottom;
-
-	 union{
-		 struct{
-			char B_kmh:1;
-			char B_mph:1;
-			char B_dot:1;
-			char B_right :1;
-			char B_light :1;
-			char B_bluetooth :1;
-			char B_left :1;
-			char B_padding:1;
-		} bits;
-		char word;
-
-	} up;
-
-
-} info_led_t;
-
-
-
-void convertToInternal(lcd_t in, lcd_internal_t *out)
-{
-
-  int tenth = ((int)in.value/10)%10;
-  convertToSeven(tenth,&(out->led_array[4]));
-    int unit = ((int)in.value)%10;
-  convertToSeven(unit,&(out->led_array[3]));
-      int dec = ((int)(in.value*10))%10;
-  convertToSeven(dec,&(out->led_array[2]));
-  info_led_t info_led;
-  info_led.bottom.bits.B_maint_green = in.B_maint_green;
-  info_led.bottom.bits.B_maint_red = in.B_maint_red;
-  info_led.bottom.bits.B_reserved = in.B_reserved;
-  info_led.bottom.bits.B_bat_0 = in.battery>=1;
-  info_led.bottom.bits.B_bat_1 = in.battery>=2;
-  info_led.bottom.bits.B_bat_2 = in.battery>=3;
-  info_led.bottom.bits.B_bat_3 = in.battery>=4;
-
-  out->led_array[0]= info_led.bottom.word;
-
-  info_led.up.bits.B_kmh = in.B_kmh;
-  info_led.up.bits.B_mph = in.B_mph;
-
-
-  info_led.up.bits.B_dot = 1;
-
-  info_led.up.bits.B_right = in.B_right;
-  info_led.up.bits.B_light = in.B_light;
-  info_led.up.bits.B_left = in.B_left;
-  info_led.up.bits.B_bluetooth = in.B_bluetooth;
-  //info_led.up.bits.B_ = in.B_mph;
-
-  out->led_array[1]= info_led.up.word;
-
-}
-
-void displayLcd(lcd_t lcd_ext)
-{
-  static lcd_internal_t lcd_int;
-  convertToInternal(lcd_ext,&lcd_int);
-  for(int i=0;i<5;i+=1)
-  {
-    sendData(i*2, lcd_int.led_array[i]);
-  }
-}
-
-void blinker_loop(lcd_t * lcd)
+void blinker_loop(LCD::lcd_t * lcd)
 {
 	const  int32_t cpt_half_periodicity = 5;
 	static uint8_t blinker_blink = 0;
 
 	static int32_t cpt_countdown = 4;
 
-	uint8_t B_status_left = 0;
-	uint8_t B_status_right = 0;
+	bool B_status_left = false;
+	bool B_status_right = false;
 
 	if(cpt_countdown == 0)
 	{
@@ -252,14 +83,44 @@ void blinker_loop(lcd_t * lcd)
 	B_status_left = HAL_GPIO_ReadPin (GPIOB, unkA_Pin);
 	B_status_right = HAL_GPIO_ReadPin (GPIOA, unkB_Pin);
 
+	// If cpt_countdown is set to zero, then
 	lcd->B_left = blinker_blink&&B_status_left;
 	lcd->B_right = blinker_blink&&B_status_right;
 
-	// If cpt_countdown is set to zero, then
-	HAL_GPIO_WritePin(GPIOB, outA_Pin, lcd->B_left);
-	HAL_GPIO_WritePin(GPIOA, outB_Pin, lcd->B_right);
+
+	HAL_GPIO_WritePin(GPIOB, outA_Pin, (GPIO_PinState) lcd->B_left);
+	HAL_GPIO_WritePin(GPIOA, outB_Pin, (GPIO_PinState) lcd->B_right);
 
 	cpt_countdown = (cpt_half_periodicity + (cpt_countdown-1))%cpt_half_periodicity;
+
+}
+
+void brake_loop(LCD::lcd_t * lcd)
+{
+
+	//TODO : custom half periodicity depending of brake
+	uint16_t raw;
+	HAL_ADC_Start(&hadc);
+    HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
+    raw = HAL_ADC_GetValue(&hadc);
+
+    static int32_t cpt_half_periodicity = 5;
+    static int32_t cpt_countdown = 4;
+    static bool light_blink = false;
+
+    lcd->value = 3.3*(5.0/3.388)*raw/4096.0;//lcd_ext.value +0.1f;
+
+    if(cpt_countdown == 0)
+	{
+		light_blink = !light_blink;
+	}
+	lcd->B_light = light_blink;
+
+
+	// turn on/off light
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, (GPIO_PinState) light_blink);
+
+    cpt_countdown = (cpt_half_periodicity + (cpt_countdown-1))%cpt_half_periodicity;
 
 }
 
@@ -301,7 +162,7 @@ int main(void)
   // 7 : STB
 
   // set to zero by defaut
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_SET);
+
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
 
@@ -309,18 +170,14 @@ int main(void)
   HAL_GPIO_WritePin(GPIOA, outB_Pin, GPIO_PIN_RESET);
 
 
-  sendCommand(0x01);
-  setupDisplay();
-  clearDisplay();
-  // Because 5 "digits"
-  sendData(2, 0x01);
-
+  LCD lcd;
+  lcd.start_display();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  static lcd_t lcd_ext;
+  static LCD::lcd_t lcd_ext;
   lcd_ext.value = 12.3f;
   lcd_ext.B_reserved = 1;
   lcd_ext.B_maint_green = 1;
@@ -330,7 +187,6 @@ int main(void)
   lcd_ext.B_left = 1;
   lcd_ext.B_light = 1;
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
-  char lamp = 1;
 
 
   while (1)
@@ -338,23 +194,19 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  uint16_t raw;
+
 	  long int count = 300000;
 	 	  for (long int i = 0; i < count; ++i) {
 	 	      count--;
 	 	  }
-	 	 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, lamp);
 
-	 	 HAL_ADC_Start(&hadc);
-	     HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
-	     raw = HAL_ADC_GetValue(&hadc);
+	 	 brake_loop(&lcd_ext);
 
-	 	 lamp = !lamp;
-	 	 lcd_ext.value = 3.3*(5.0/3.388)*raw/4096.0;//lcd_ext.value +0.1f;
-	  blinker_loop(&lcd_ext);
-	  displayLcd(lcd_ext);
-	  lcd_ext.battery++;
-	  lcd_ext.battery = lcd_ext.battery % 5;
+
+		 blinker_loop(&lcd_ext);
+		 lcd.displayLcd(lcd_ext);
+		 lcd_ext.battery++;
+		 lcd_ext.battery = lcd_ext.battery % 5;
 
 
   }
