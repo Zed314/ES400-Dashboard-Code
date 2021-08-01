@@ -5,10 +5,11 @@
  *      Author: Zed
  */
 #include "stm32f0xx_hal.h"
-#include "lcd.hpp"
+
+#include "dashboardDisplay.hpp"
 #include "tm1620.hpp"
 
-LCD::LCD():led_driver(5,6,7)
+DashboardDisplay::DashboardDisplay():led_driver(5,6,7)
 {
     for (int i = 0; i < 5; i++)
     {
@@ -16,13 +17,13 @@ LCD::LCD():led_driver(5,6,7)
     }
 }
 
-void LCD::start_display(void)
+void DashboardDisplay::start_display(void)
 {
 	this->led_driver.start_display();
 }
 
 
-void LCD::convertToInternal(LCD::lcd_t in)
+void DashboardDisplay::convertToInternal(DashboardDisplay::infos_t in)
 {
 
     int tenth = ((int)in.value / 10) % 10;
@@ -31,7 +32,7 @@ void LCD::convertToInternal(LCD::lcd_t in)
     this->led_driver.convertToSeven(unit, &(this->led_array[3]));
     int dec = ((int)(in.value * 10)) % 10;
     this->led_driver.convertToSeven(dec, &(this->led_array[2]));
-    LCD::info_led_t info_led;
+    DashboardDisplay::info_led_t info_led;
     info_led.bottom.bits.B_maint_green = in.B_maint_green;
     info_led.bottom.bits.B_maint_red = in.B_maint_red;
     info_led.bottom.bits.B_reserved = in.B_reserved;
@@ -55,7 +56,7 @@ void LCD::convertToInternal(LCD::lcd_t in)
     this->led_array[1] = info_led.up.word;
 }
 
-void LCD::displayLcd(LCD::lcd_t lcd_ext)
+void DashboardDisplay::displayInfos(DashboardDisplay::infos_t lcd_ext)
 {
     convertToInternal(lcd_ext);
     for (int i = 0; i < 5; i += 1)

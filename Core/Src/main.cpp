@@ -19,7 +19,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "lcd.hpp"
+
+#include "dashboardDisplay.hpp"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -65,7 +66,7 @@ static void MX_ADC_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void blinker_loop(LCD::lcd_t * lcd)
+void blinker_loop(DashboardDisplay::infos_t * lcd)
 {
 	const  int32_t cpt_half_periodicity = 5;
 	static uint8_t blinker_blink = 0;
@@ -95,7 +96,7 @@ void blinker_loop(LCD::lcd_t * lcd)
 
 }
 
-void brake_loop(LCD::lcd_t * lcd)
+void brake_loop(DashboardDisplay::infos_t * lcd)
 {
 
 	//TODO : custom half periodicity depending of brake
@@ -170,14 +171,14 @@ int main(void)
   HAL_GPIO_WritePin(GPIOA, outB_Pin, GPIO_PIN_RESET);
 
 
-  LCD lcd;
+  DashboardDisplay lcd;
   lcd.start_display();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  static LCD::lcd_t lcd_ext;
+  static DashboardDisplay::infos_t lcd_ext;
   lcd_ext.value = 12.3f;
   lcd_ext.B_reserved = 1;
   lcd_ext.B_maint_green = 1;
@@ -204,7 +205,7 @@ int main(void)
 
 
 		 blinker_loop(&lcd_ext);
-		 lcd.displayLcd(lcd_ext);
+		 lcd.displayInfos(lcd_ext);
 		 lcd_ext.battery++;
 		 lcd_ext.battery = lcd_ext.battery % 5;
 

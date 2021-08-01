@@ -5,12 +5,12 @@
  *      Author: Zed
  */
 
-#ifndef SRC_LCD_HPP_
-#define SRC_LCD_HPP_
+#ifndef SRC_DASHBOARDDISPLAY_HPP_
+#define SRC_DASHBOARDDISPLAY_HPP_
 
 #include "tm1620.hpp"
 
-class LCD
+class DashboardDisplay
 {
 public:
     typedef struct
@@ -26,11 +26,11 @@ public:
         bool B_maint_green;
         char battery;
         float value;
-    } lcd_t;
-    LCD();
-    ~LCD();
+    } infos_t;
+    DashboardDisplay();
+    ~DashboardDisplay();
     void start_display(void);
-    void displayLcd(LCD::lcd_t lcd_ext);
+    void displayInfos(DashboardDisplay::infos_t infos);
 
 private:
     typedef struct
@@ -84,9 +84,9 @@ private:
      * Proceeds to conversion of external structure (visible to user),
      * into a format that can be easely displayed, into this->led_array.
      *
-     * \param[in] in incoming lcd_t data
+     * \param[in] in incoming infos_t data
      */
-    void convertToInternal(LCD::lcd_t in);
+    void convertToInternal(DashboardDisplay::infos_t in);
 
 
 
@@ -101,4 +101,4 @@ private:
 };
 
 
-#endif /* SRC_LCD_HPP_ */
+#endif /* SRC_DASHBOARDDISPLAY_HPP_ */
