@@ -56,9 +56,9 @@ void DashboardDisplay::convertToInternal(DashboardDisplay::infos_t in)
     this->led_array[1] = info_led.up.word;
 }
 
-void DashboardDisplay::displayInfos(DashboardDisplay::infos_t lcd_ext)
+void DashboardDisplay::displayInfos(DashboardDisplay::infos_t infos)
 {
-    convertToInternal(lcd_ext);
+    convertToInternal(infos);
     for (int i = 0; i < 5; i += 1)
     {
         this->led_driver.sendData(i * 2, this->led_array[i]);
