@@ -14,8 +14,6 @@
 #define TM1620_CMD_DISPLAY 0x80
 #define TM1620_CMD_ADDRESS 0xC0
 
-//const char TM1620::conv_seven[] = {0x7E, 48, 109, 121, 51, 91, 95, 112, 127, 123};
-
 const char TM1620::conv_seven[] = {0x7E, 48, 109, 121, 51, 91, 95, 112, 127, 123};
 
 TM1620::TM1620(char din, char clk, char stb)
@@ -23,6 +21,10 @@ TM1620::TM1620(char din, char clk, char stb)
     this->din = din;
     this->clk = clk;
     this->stb = stb;
+}
+
+TM1620::~TM1620()
+{
 }
 
 void TM1620::start_display(void)
@@ -63,9 +65,9 @@ void TM1620::stop_cmd(void)
 
 void TM1620::sendCommand(char cmd)
 {
-    start_cmd();
-    send_cmd(cmd);
-    stop_cmd();
+    this->start_cmd();
+    this->send_cmd(cmd);
+    this->stop_cmd();
 }
 
 void TM1620::sendData(char address, char data)

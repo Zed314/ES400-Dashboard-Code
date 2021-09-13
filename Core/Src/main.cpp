@@ -42,12 +42,16 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
+/** HALF PERIODICITY */
+#define BLINKER_PERIODICITY 8
+
+#define WHEEL_RADIUS_CM 30.0f
 
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc;
-
+TIM_HandleTypeDef htim14;
 CAN_HandleTypeDef hcan;
 
 /* USER CODE BEGIN PV */
@@ -59,21 +63,74 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN_Init(void);
 static void MX_ADC_Init(void);
+static void MX_TIM14_Init(void);
 /* USER CODE BEGIN PFP */
-
+static void blinker_loop(DashboardDisplay::infos_t * lcd);
+static void get_adc_values(float * acc, float* break1, float * break2);
+static void brake_loop(DashboardDisplay::infos_t * lcd);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void blinker_loop(DashboardDisplay::infos_t * lcd)
+static DashboardDisplay::infos_t lcd_ext;
+static DashboardDisplay lcd;
+
+
+// Callback: timer has rolled over
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-	const  int32_t cpt_half_periodicity = 5;
+	static int cpt = 0;
+  // Check which version of the timer triggered this callback and toggle LED
+  if (htim == &htim14 )
+  {
+	 /* if(cpt==0)
+	  {*/
+		 	 brake_loop(&lcd_ext);
+
+
+			 blinker_loop(&lcd_ext);
+			 lcd.displayInfos(lcd_ext);
+			 lcd_ext.battery++;
+			 lcd_ext.battery = lcd_ext.battery % 5;
+	  /*}
+	  cpt++;*/
+  }
+}
+static uint32_t elapsed_tick=0;
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	static int cpt;
+	static uint32_t last_tick= 0;
+	static bool first = true;
+	if(GPIO_Pin == GPIO_PIN_6)
+	{
+		if(HAL_GetTick() - last_tick <100 && !first)
+		{
+			first = false;
+			return;
+		}
+		 cpt++;
+		 if(cpt==1)
+		 {
+			 elapsed_tick = HAL_GetTick() - last_tick;
+			 lcd_ext.B_mph = true;
+			 cpt = 0;
+			 last_tick = HAL_GetTick();
+		 }
+		 first = false;
+
+	}
+}
+
+static void blinker_loop(DashboardDisplay::infos_t * lcd)
+{
+
 	static uint8_t blinker_blink = 0;
 
 	static int32_t cpt_countdown = 4;
 
-	bool B_status_left = false;
+ 	bool B_status_left = false;
 	bool B_status_right = false;
 
 	if(cpt_countdown == 0)
@@ -81,8 +138,8 @@ void blinker_loop(DashboardDisplay::infos_t * lcd)
 		blinker_blink = !blinker_blink;
 	}
 
-	B_status_left = HAL_GPIO_ReadPin (GPIOB, unkA_Pin);
-	B_status_right = HAL_GPIO_ReadPin (GPIOA, unkB_Pin);
+	B_status_left = true; //!HAL_GPIO_ReadPin (GPIOB, unkA_Pin);
+	B_status_right = true; //!HAL_GPIO_ReadPin (GPIOA, unkB_Pin);
 
 	// If cpt_countdown is set to zero, then
 	lcd->B_left = blinker_blink&&B_status_left;
@@ -92,32 +149,96 @@ void blinker_loop(DashboardDisplay::infos_t * lcd)
 	HAL_GPIO_WritePin(GPIOB, outA_Pin, (GPIO_PinState) lcd->B_left);
 	HAL_GPIO_WritePin(GPIOA, outB_Pin, (GPIO_PinState) lcd->B_right);
 
-	cpt_countdown = (cpt_half_periodicity + (cpt_countdown-1))%cpt_half_periodicity;
+	cpt_countdown = (BLINKER_PERIODICITY + (cpt_countdown-1))%BLINKER_PERIODICITY;
 
 }
-
-void brake_loop(DashboardDisplay::infos_t * lcd)
+static void get_adc_values(float * acc, float* break1, float * break2)
 {
-
-	//TODO : custom half periodicity depending of brake
 	uint16_t raw;
 	HAL_ADC_Start(&hadc);
-    HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
-    raw = HAL_ADC_GetValue(&hadc);
+	HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
+	raw = HAL_ADC_GetValue(&hadc);
+	*break1 =  3.3*(5.0/3.388)*raw/4096.0;
+
+	HAL_ADC_Start(&hadc);
+	HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
+	raw = HAL_ADC_GetValue(&hadc);
+	*break2 =  3.3*(5.0/3.388)*raw/4096.0;
+
+	HAL_ADC_Start(&hadc);
+	HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
+	raw = HAL_ADC_GetValue(&hadc);
+	*acc =  3.3*(5.0/3.388)*raw/4096.0;
+}
+static void brake_loop(DashboardDisplay::infos_t * lcd)
+{
+
+
+
+
+    	//HAL_ADC_Stop(&hadc);
+	float acc;
+	float break1;
+	float break2;
+	get_adc_values(&acc, &break1, &break2);
 
     static int32_t cpt_half_periodicity = 5;
     static int32_t cpt_countdown = 4;
     static bool light_blink = false;
+    bool no_blink=false;
 
-    lcd->value = 3.3*(5.0/3.388)*raw/4096.0;//lcd_ext.value +0.1f;
+    lcd->value = 2.0f*3.14f*WHEEL_RADIUS_CM*0.01f*0.001/((elapsed_tick/1000.0f)/3600.0f);//acc;//3.3*(5.0/3.388)*raw/4096.0;//lcd_ext.value +0.1f;
+    //lcd->value =lcd->value/10.0f;
+	/*if(lcd->value<0.9)
+	{
+		//No blink
+		no_blink=true;
+	}
+	else if(lcd->value<1.0)
+	{
+		cpt_half_periodicity = 3;
+	}
+	else if(lcd->value<1.5)
+	{
+		cpt_half_periodicity = 3;
+	}
+	else if(lcd->value<2.0)
+	{
+		cpt_half_periodicity = 3;
+	}
+	else if(lcd->value<2.5)
+	{
+		cpt_half_periodicity = 3;
+	}
+	else if(lcd->value<3.0)
+	{
+		cpt_half_periodicity = 2;
+	}
+	else if(lcd->value<3.5)
+	{
+		cpt_half_periodicity = 2;
+	}
+	else if(lcd->value<4.0)
+	{
+		cpt_half_periodicity = 1;
+	}
+	else
+	{
+		cpt_half_periodicity = 1;
+	}
 
     if(cpt_countdown == 0)
 	{
 		light_blink = !light_blink;
 	}
+
+    if(no_blink)
+    {
+    	light_blink = true;
+    }
+
 	lcd->B_light = light_blink;
-
-
+*/
 	// turn on/off light
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, (GPIO_PinState) light_blink);
 
@@ -157,11 +278,12 @@ int main(void)
   MX_GPIO_Init();
   MX_CAN_Init();
   MX_ADC_Init();
+  MX_TIM14_Init();
   /* USER CODE BEGIN 2 */
   // 5 : DIN
   // 6 : CLK
   // 7 : STB
-
+  HAL_TIM_Base_Start_IT(&htim14);
   // set to zero by defaut
 
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
@@ -171,14 +293,9 @@ int main(void)
   HAL_GPIO_WritePin(GPIOA, outB_Pin, GPIO_PIN_RESET);
 
 
-  DashboardDisplay lcd;
+
   lcd.start_display();
-  /* USER CODE END 2 */
 
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-
-  static DashboardDisplay::infos_t lcd_ext;
   lcd_ext.value = 12.3f;
   lcd_ext.B_reserved = 1;
   lcd_ext.B_maint_green = 1;
@@ -187,27 +304,53 @@ int main(void)
   lcd_ext.B_kmh = 1;
   lcd_ext.B_left = 1;
   lcd_ext.B_light = 1;
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+
+
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
 
+	/* HAL_CAN_Start(&hcan);
+
+	 CAN_TxHeaderTypeDef header;
+	 header.StdId = 0;
+	 header.ExtId = 0;
+	 header.IDE = CAN_ID_STD;
+	 header.RTR = CAN_RTR_DATA;
+	 header.DLC = 8;
+	 header.TransmitGlobalTime = DISABLE;
+
+	 uint32_t              TxMailbox;
+	 uint8_t               TxData[8];
+	 TxData[0] = 0xAA;
+	 TxData[1] = 0xAA;
+	 TxData[2] = 0xAA;
+	 TxData[3] = 0xAA;
+	 TxData[4] = 0xAA;
+	 TxData[5] = 0xAA;
+	 TxData[6] = 0xAA;
+	 TxData[7] = 0xAA;*/
 
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-	  long int count = 300000;
+	  /// Frequency 4000000
+	  long int count = 100000;
+	  //long int count = 1000000;
+	  //long int count = 1;
 	 	  for (long int i = 0; i < count; ++i) {
 	 	      count--;
 	 	  }
 
-	 	 brake_loop(&lcd_ext);
 
 
-		 blinker_loop(&lcd_ext);
-		 lcd.displayInfos(lcd_ext);
-		 lcd_ext.battery++;
-		 lcd_ext.battery = lcd_ext.battery % 5;
+
+		 //HAL_CAN_AddTxMessage(&hcan, &header, TxData, &TxMailbox);
+		 //HAL_GPIO_WritePin(GPIOA, CANH_Pin, (GPIO_PinState)state);
 
 
   }
@@ -259,7 +402,44 @@ static void MX_ADC_Init(void)
 {
 
   /* USER CODE BEGIN ADC_Init 0 */
+/*
+	 ADC_ChannelConfTypeDef sConfig = {0};
+	  hadc.Instance = ADC1;
+	  hadc.Init.ScanConvMode = ADC_SCAN_ENABLE;
+	  hadc.Init.ContinuousConvMode = ENABLE;
+	  hadc.Init.DiscontinuousConvMode = DISABLE;
+	  hadc.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+	  hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+	  //hadc.Init.NbrOfConversion = 3;
+	  if (HAL_ADC_Init(&hadc) != HAL_OK)
+	  {
+	    Error_Handler();
+	  }
 
+	  sConfig.Channel = ADC_CHANNEL_4;
+	  sConfig.Rank = 1;
+	  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+	  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
+	  {
+	    Error_Handler();
+	  }
+
+	  sConfig.Channel = ADC_CHANNEL_5;
+	  sConfig.Rank = 2;
+	  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
+	  {
+	    Error_Handler();
+	  }
+
+	  sConfig.Channel = ADC_CHANNEL_5;
+	  sConfig.Rank = 3;
+	  //sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
+	  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
+	  {
+	    Error_Handler();
+	  }
+	  return;
+*/
   /* USER CODE END ADC_Init 0 */
 
   ADC_ChannelConfTypeDef sConfig = {0};
@@ -277,8 +457,8 @@ static void MX_ADC_Init(void)
   hadc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc.Init.LowPowerAutoWait = DISABLE;
   hadc.Init.LowPowerAutoPowerOff = DISABLE;
-  hadc.Init.ContinuousConvMode = ENABLE;
-  hadc.Init.DiscontinuousConvMode = DISABLE;
+  hadc.Init.ContinuousConvMode = DISABLE;
+  hadc.Init.DiscontinuousConvMode = ENABLE;
   hadc.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc.Init.DMAContinuousRequests = DISABLE;
@@ -291,11 +471,29 @@ static void MX_ADC_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_4;
   sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  //sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
     Error_Handler();
   }
+  /** Configure for the selected ADC regular channel to be converted.
+  */
+  sConfig.Channel = ADC_CHANNEL_5;
+  sConfig.Rank = ADC_RANK_CHANNEL_NUMBER>>1;
+  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel to be converted.
+  */
+  sConfig.Channel = ADC_CHANNEL_7;
+  sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
+  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+
   /* USER CODE BEGIN ADC_Init 2 */
 
   /* USER CODE END ADC_Init 2 */
@@ -340,6 +538,37 @@ static void MX_CAN_Init(void)
 }
 
 /**
+  * @brief TIM14 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM14_Init(void)
+{
+
+  /* USER CODE BEGIN TIM14_Init 0 */
+
+  /* USER CODE END TIM14_Init 0 */
+
+  /* USER CODE BEGIN TIM14_Init 1 */
+
+  /* USER CODE END TIM14_Init 1 */
+  htim14.Instance = TIM14;
+  htim14.Init.Prescaler = 5;
+  htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim14.Init.Period = 65535;
+  htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim14.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim14) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM14_Init 2 */
+
+  /* USER CODE END TIM14_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -359,9 +588,15 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8|outB_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pins : CANH_Pin CANL_Pin */
+  GPIO_InitStruct.Pin = CANH_Pin|CANL_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /*Configure GPIO pin : unkB_Pin */
   GPIO_InitStruct.Pin = unkB_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;// GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(unkB_GPIO_Port, &GPIO_InitStruct);
 
@@ -383,9 +618,13 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : unkA_Pin */
   GPIO_InitStruct.Pin = unkA_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode =  GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(unkA_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI4_15_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_15_IRQn);
 
 }
 

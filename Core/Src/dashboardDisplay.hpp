@@ -1,5 +1,5 @@
 /*
- * lcd.hpp
+ * dashboardDiplay.hpp
  *
  *  Created on: 31 juil. 2021
  *      Author: Zed

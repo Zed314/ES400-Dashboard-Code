@@ -1,5 +1,5 @@
 /*
- * lcd.cpp
+ * dashboardDisplay.cpp
  *
  *  Created on: 31 juil. 2021
  *      Author: Zed
@@ -9,7 +9,7 @@
 #include "dashboardDisplay.hpp"
 #include "tm1620.hpp"
 
-DashboardDisplay::DashboardDisplay():led_driver(5,6,7)
+DashboardDisplay::DashboardDisplay():led_driver(GPIO_PIN_5,GPIO_PIN_6,GPIO_PIN_7)
 {
     for (int i = 0; i < 5; i++)
     {
@@ -17,6 +17,10 @@ DashboardDisplay::DashboardDisplay():led_driver(5,6,7)
     }
 }
 
+DashboardDisplay::~DashboardDisplay()
+{
+
+}
 void DashboardDisplay::start_display(void)
 {
 	this->led_driver.start_display();
