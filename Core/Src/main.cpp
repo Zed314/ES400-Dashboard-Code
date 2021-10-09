@@ -80,145 +80,139 @@ static DashboardDisplay lcd;
 // Callback: timer has rolled over
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-	static int cpt = 0;
   // Check which version of the timer triggered this callback and toggle LED
-  if (htim == &htim14 )
+  if (htim == &htim14)
   {
-	 /* if(cpt==0)
-	  {*/
-		 	 brake_loop(&lcd_ext);
 
+    brake_loop(&lcd_ext);
 
-			 blinker_loop(&lcd_ext);
-			 lcd.displayInfos(lcd_ext);
-			 lcd_ext.battery++;
-			 lcd_ext.battery = lcd_ext.battery % 5;
-	  /*}
-	  cpt++;*/
+    blinker_loop(&lcd_ext);
+    lcd.displayInfos(lcd_ext);
+    // Disabled
+    /*
+    lcd_ext.battery++;
+    lcd_ext.battery = lcd_ext.battery % 5;
+    */
   }
 }
-static uint32_t elapsed_tick=0;
+static uint32_t elapsed_tick = 0;
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	static int cpt;
-	static uint32_t last_tick= 0;
-	static bool first = true;
-	if(GPIO_Pin == GPIO_PIN_6)
-	{
-		if(HAL_GetTick() - last_tick <100 && !first)
-		{
-			first = false;
-			return;
-		}
-		 cpt++;
-		 if(cpt==1)
-		 {
-			 elapsed_tick = HAL_GetTick() - last_tick;
-			 lcd_ext.B_mph = true;
-			 cpt = 0;
-			 last_tick = HAL_GetTick();
-		 }
-		 first = false;
-
-	}
+  static int cpt;
+  static uint32_t last_tick = 0;
+  static bool first = true;
+  if (GPIO_Pin == GPIO_PIN_6)
+  {
+    if (HAL_GetTick() - last_tick < 100 && !first)
+    {
+      first = false;
+      return;
+    }
+    cpt++;
+    if (cpt == 1)
+    {
+      elapsed_tick = HAL_GetTick() - last_tick;
+      lcd_ext.B_mph = true;
+      cpt = 0;
+      last_tick = HAL_GetTick();
+    }
+    first = false;
+  }
 }
 
-static void blinker_loop(DashboardDisplay::infos_t * lcd)
+static void blinker_loop(DashboardDisplay::infos_t *lcd)
 {
 
-	static uint8_t blinker_blink = 0;
+  static uint8_t blinker_blink = 0;
 
-	static int32_t cpt_countdown = 4;
+  static int32_t cpt_countdown = 4;
 
- 	bool B_status_left = false;
-	bool B_status_right = false;
+  bool B_status_left = false;
+  bool B_status_right = false;
 
-	if(cpt_countdown == 0)
-	{
-		blinker_blink = !blinker_blink;
-	}
+  if (cpt_countdown == 0)
+  {
+    blinker_blink = !blinker_blink;
+  }
 
-	B_status_left = true; //!HAL_GPIO_ReadPin (GPIOB, unkA_Pin);
-	B_status_right = true; //!HAL_GPIO_ReadPin (GPIOA, unkB_Pin);
+  B_status_left = true;  //!HAL_GPIO_ReadPin (GPIOB, unkA_Pin);
+  B_status_right = true; //!HAL_GPIO_ReadPin (GPIOA, unkB_Pin);
 
-	// If cpt_countdown is set to zero, then
-	lcd->B_left = blinker_blink&&B_status_left;
-	lcd->B_right = blinker_blink&&B_status_right;
+  // If cpt_countdown is set to zero, then
+  lcd->B_left = blinker_blink && B_status_left;
+  lcd->B_right = blinker_blink && B_status_right;
 
-
-	HAL_GPIO_WritePin(GPIOB, outA_Pin, (GPIO_PinState) lcd->B_left);
-	HAL_GPIO_WritePin(GPIOA, outB_Pin, (GPIO_PinState) lcd->B_right);
-
-	cpt_countdown = (BLINKER_PERIODICITY + (cpt_countdown-1))%BLINKER_PERIODICITY;
-
+  // Disabled
+/*
+  HAL_GPIO_WritePin(GPIOB, outA_Pin, (GPIO_PinState)lcd->B_left);
+  HAL_GPIO_WritePin(GPIOA, outB_Pin, (GPIO_PinState)lcd->B_right);
+*/
+  cpt_countdown = (BLINKER_PERIODICITY + (cpt_countdown - 1)) % BLINKER_PERIODICITY;
 }
-static void get_adc_values(float * acc, float* break1, float * break2)
+static void get_adc_values(float *acc, float *break1, float *break2)
 {
-	uint16_t raw;
-	HAL_ADC_Start(&hadc);
-	HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
-	raw = HAL_ADC_GetValue(&hadc);
-	*break1 =  3.3*(5.0/3.388)*raw/4096.0;
+  uint16_t raw;
+  HAL_ADC_Start(&hadc);
+  HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
+  raw = HAL_ADC_GetValue(&hadc);
+  *break1 = 3.3 * (5.0 / 3.388) * raw / 4096.0;
 
-	HAL_ADC_Start(&hadc);
-	HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
-	raw = HAL_ADC_GetValue(&hadc);
-	*break2 =  3.3*(5.0/3.388)*raw/4096.0;
+  HAL_ADC_Start(&hadc);
+  HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
+  raw = HAL_ADC_GetValue(&hadc);
+  *break2 = 3.3 * (5.0 / 3.388) * raw / 4096.0;
 
-	HAL_ADC_Start(&hadc);
-	HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
-	raw = HAL_ADC_GetValue(&hadc);
-	*acc =  3.3*(5.0/3.388)*raw/4096.0;
+  HAL_ADC_Start(&hadc);
+  HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
+  raw = HAL_ADC_GetValue(&hadc);
+  *acc = 3.3 * (5.0 / 3.388) * raw / 4096.0;
 }
-static void brake_loop(DashboardDisplay::infos_t * lcd)
+static void brake_loop(DashboardDisplay::infos_t *lcd)
 {
 
+  float acc;
+  float break1;
+  float break2;
+  get_adc_values(&acc, &break1, &break2);
 
+  static int32_t cpt_half_periodicity = 5;
+  static int32_t cpt_countdown = 4;
+  static bool light_blink = false;
+  bool no_blink = false;
 
+  lcd->value = 2.0f * 3.14f * WHEEL_RADIUS_CM * 0.01f * 0.001 / ((elapsed_tick / 1000.0f) / 3600.0f); //acc;//3.3*(5.0/3.388)*raw/4096.0;//lcd_ext.value +0.1f;
+                                                                                                      //lcd->value =lcd->value/10.0f;
 
-    	//HAL_ADC_Stop(&hadc);
-	float acc;
-	float break1;
-	float break2;
-	get_adc_values(&acc, &break1, &break2);
-
-    static int32_t cpt_half_periodicity = 5;
-    static int32_t cpt_countdown = 4;
-    static bool light_blink = false;
-    bool no_blink=false;
-
-    lcd->value = 2.0f*3.14f*WHEEL_RADIUS_CM*0.01f*0.001/((elapsed_tick/1000.0f)/3600.0f);//acc;//3.3*(5.0/3.388)*raw/4096.0;//lcd_ext.value +0.1f;
-    //lcd->value =lcd->value/10.0f;
-	/*if(lcd->value<0.9)
+    if(break1<0.9)
 	{
 		//No blink
 		no_blink=true;
 	}
-	else if(lcd->value<1.0)
+	else if(break1<1.0)
 	{
 		cpt_half_periodicity = 3;
 	}
-	else if(lcd->value<1.5)
+	else if(break1<1.5)
 	{
 		cpt_half_periodicity = 3;
 	}
-	else if(lcd->value<2.0)
+	else if(break1<2.0)
 	{
 		cpt_half_periodicity = 3;
 	}
-	else if(lcd->value<2.5)
+	else if(break1<2.5)
 	{
 		cpt_half_periodicity = 3;
 	}
-	else if(lcd->value<3.0)
+	else if(break1<3.0)
 	{
 		cpt_half_periodicity = 2;
 	}
-	else if(lcd->value<3.5)
+	else if(break1<3.5)
 	{
 		cpt_half_periodicity = 2;
 	}
-	else if(lcd->value<4.0)
+	else if(break1<4.0)
 	{
 		cpt_half_periodicity = 1;
 	}
@@ -238,12 +232,11 @@ static void brake_loop(DashboardDisplay::infos_t * lcd)
     }
 
 	lcd->B_light = light_blink;
-*/
-	// turn on/off light
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, (GPIO_PinState) light_blink);
 
-    cpt_countdown = (cpt_half_periodicity + (cpt_countdown-1))%cpt_half_periodicity;
+  // turn on/off light
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, (GPIO_PinState)light_blink);
 
+  cpt_countdown = (cpt_half_periodicity + (cpt_countdown - 1)) % cpt_half_periodicity;
 }
 
 /* USER CODE END 0 */
@@ -312,46 +305,16 @@ int main(void)
 
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
 
-	/* HAL_CAN_Start(&hcan);
-
-	 CAN_TxHeaderTypeDef header;
-	 header.StdId = 0;
-	 header.ExtId = 0;
-	 header.IDE = CAN_ID_STD;
-	 header.RTR = CAN_RTR_DATA;
-	 header.DLC = 8;
-	 header.TransmitGlobalTime = DISABLE;
-
-	 uint32_t              TxMailbox;
-	 uint8_t               TxData[8];
-	 TxData[0] = 0xAA;
-	 TxData[1] = 0xAA;
-	 TxData[2] = 0xAA;
-	 TxData[3] = 0xAA;
-	 TxData[4] = 0xAA;
-	 TxData[5] = 0xAA;
-	 TxData[6] = 0xAA;
-	 TxData[7] = 0xAA;*/
-
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  /// Frequency 4000000
-	  long int count = 100000;
-	  //long int count = 1000000;
-	  //long int count = 1;
-	 	  for (long int i = 0; i < count; ++i) {
-	 	      count--;
-	 	  }
-
-
-
-
-		 //HAL_CAN_AddTxMessage(&hcan, &header, TxData, &TxMailbox);
-		 //HAL_GPIO_WritePin(GPIOA, CANH_Pin, (GPIO_PinState)state);
-
+    /// Frequency 4000000
+    long int count = 100000;
+    for (long int i = 0; i < count; ++i) {
+        count--;
+    }
 
   }
   /* USER CODE END 3 */
@@ -402,44 +365,6 @@ static void MX_ADC_Init(void)
 {
 
   /* USER CODE BEGIN ADC_Init 0 */
-/*
-	 ADC_ChannelConfTypeDef sConfig = {0};
-	  hadc.Instance = ADC1;
-	  hadc.Init.ScanConvMode = ADC_SCAN_ENABLE;
-	  hadc.Init.ContinuousConvMode = ENABLE;
-	  hadc.Init.DiscontinuousConvMode = DISABLE;
-	  hadc.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-	  hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-	  //hadc.Init.NbrOfConversion = 3;
-	  if (HAL_ADC_Init(&hadc) != HAL_OK)
-	  {
-	    Error_Handler();
-	  }
-
-	  sConfig.Channel = ADC_CHANNEL_4;
-	  sConfig.Rank = 1;
-	  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
-	  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
-	  {
-	    Error_Handler();
-	  }
-
-	  sConfig.Channel = ADC_CHANNEL_5;
-	  sConfig.Rank = 2;
-	  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
-	  {
-	    Error_Handler();
-	  }
-
-	  sConfig.Channel = ADC_CHANNEL_5;
-	  sConfig.Rank = 3;
-	  //sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
-	  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
-	  {
-	    Error_Handler();
-	  }
-	  return;
-*/
   /* USER CODE END ADC_Init 0 */
 
   ADC_ChannelConfTypeDef sConfig = {0};
@@ -471,7 +396,6 @@ static void MX_ADC_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_4;
   sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
-  //sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
     Error_Handler();
