@@ -188,33 +188,13 @@ static void brake_loop(DashboardDisplay::infos_t *lcd)
 		//No blink
 		no_blink=true;
 	}
-	else if(break1<1.0)
-	{
-		cpt_half_periodicity = 3;
-	}
-	else if(break1<1.5)
-	{
-		cpt_half_periodicity = 3;
-	}
-	else if(break1<2.0)
-	{
-		cpt_half_periodicity = 3;
-	}
 	else if(break1<2.5)
 	{
 		cpt_half_periodicity = 3;
 	}
-	else if(break1<3.0)
-	{
-		cpt_half_periodicity = 2;
-	}
 	else if(break1<3.5)
 	{
 		cpt_half_periodicity = 2;
-	}
-	else if(break1<4.0)
-	{
-		cpt_half_periodicity = 1;
 	}
 	else
 	{
