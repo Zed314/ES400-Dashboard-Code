@@ -290,12 +290,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    /// Frequency 4000000
-    long int count = 100000;
-    for (long int i = 0; i < count; ++i) {
-        count--;
-    }
-
   }
   /* USER CODE END 3 */
 }
